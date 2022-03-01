@@ -40,4 +40,53 @@ CHIP CPU {
 
     PARTS:
     // Put your code here:
+
+
+    // A Register
+    Not(in=instruction[15], out=isAInstruction);
+    Or(a=isAInstruction, b=instruction[5], out=loadA);
+    ARegister(in=toAreg, load=loadA, out=Aout, out[0..14]=addressM); // addressM 15 bits ?
+
+    // D Register
+    And(a=instruction[4], b=instruction[15], out=loadD);
+    DRegister(in=ALUout, load=loadD, out=Dout);
+
+    // instruction[3] -> writeM
+    And(a=instruction[15], b=instruction[3], out=writeM);
+
+
+    // Mux to A register
+    Mux16(a=instruction, b=ALUout, sel=instruction[15], out=toAreg);
+    // Mux to ALU
+    Mux16(a=Aout, b=inM, sel=instruction[12], out=ALUMuxOut);
+
+
+
+    // PC logic
+
+    // DMux8Way(in=instruction[15], sel=instruction[0..2], a=null, b=JGT, c=JEQ, d=JGE, e=JLT, f=JNE, g=JLE, h=JMP);
+    
+    // test if it is an unconditional jump
+    And(a=instruction[0], b=instruction[1], out=partialJMP);
+    And(a=partialJMP, b=instruction[2], out=isJMP);
+    // test if it is an eq to 0 jump
+    And(a=ALUOutIsZero, b=instruction[1], out=isJE);
+    // test if it is a negative jump
+    And(a=ALUOutIsNeg, b=instruction[2], out=isJN);
+    // test if it is a positive jump
+    Or(a=ALUOutIsZero, b=ALUOutIsNeg, out=isZRorisNG);
+    Not(in=isZRorisNG, out=ALUOutIsPositive);
+    And(a=ALUOutIsPositive, b=instruction[0], out=isJG);
+
+    Or(a=isJMP, b=isJE, out=tmp1);
+    Or(a=tmp1, b=isJN, out=tmp2);
+    Or(a=tmp2, b=isJG, out=JUMP);
+
+    And(a=instruction[15], b=JUMP, out=isCandJUMP);
+
+    PC(in=Aout, load=isCandJUMP, inc=true, reset=reset, out[0..14]=pc); // pc out 15 bits?
+
+    ALU(x=Dout, y=ALUMuxOut, zx=instruction[11], nx=instruction[10], zy=instruction[9], 
+        ny=instruction[8], f=instruction[7], no=instruction[6], out=outM, out=ALUout, 
+        zr=ALUOutIsZero, ng=ALUOutIsNeg);
 }
